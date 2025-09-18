@@ -2,6 +2,7 @@
 
 const char kWindowTitle[] = "GC1C_99_オオハラ_ヒデフミ";
 
+
 // 2x2の行列を表す
 struct Matrix2x2
 {
