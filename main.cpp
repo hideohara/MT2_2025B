@@ -1,7 +1,8 @@
 #include <Novice.h>
+#include <math.h>
+//#define _USE_MATH_DEFINES
 
 const char kWindowTitle[] = "GC1C_99_オオハラ_ヒデフミ";
-
 
 // 2x2の行列を表す
 struct Matrix2x2
@@ -85,6 +86,29 @@ Vector2 Multiply(Vector2 vector, Matrix2x2 matrix)
 	return result;
 }
 
+// 回転行列
+Matrix2x2 MakeRotateMatrix(float theta)
+{
+	Matrix2x2 result = {};
+
+	//行列を作る
+	result.m[0][0] = cosf(theta);
+	result.m[0][1] = sinf(theta);
+	result.m[1][0] = -sinf(theta);
+	result.m[1][1] = cosf(theta);
+	return result;
+}
+
+//スクリーン座標変換用関数
+Vector2 ToScreen(Vector2 world) {
+	// 今回のワールド座標系からスクリーン座標系は
+	// 原点位置がyに500ずれていて、y軸が反転
+	const Vector2 kWorldToScreenTranslate = { 0.0f, 500.f };
+	const Vector2 kWorldToScreenScale = { 1.0f, -1.0f };
+	return {
+	  (world.x * kWorldToScreenScale.x) + kWorldToScreenTranslate.x,
+	  (world.y * kWorldToScreenScale.y) + kWorldToScreenTranslate.y };
+}
 
 // Windowsアプリでのエントリーポイント(main関数)
 int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
@@ -96,17 +120,34 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 	char keys[256] = {0};
 	char preKeys[256] = {0};
 
-	Matrix2x2 m1;
-	m1.m[0][0] = 1.0f;
-	m1.m[0][1] = 2.0f;
-	m1.m[1][0] = 3.0f;
-	m1.m[1][1] = 4.0f;
-	Matrix2x2 m2;
-	m2.m[0][0] = 5.0f;
-	m2.m[0][1] = 6.0f;
-	m2.m[1][0] = 7.0f;
-	m2.m[1][1] = 8.0f;
-	Vector2 v = { 10, 20 };
+	int textureHandle = Novice::LoadTexture("white1x1.png");
+
+	// もととなる矩形の定数
+	const Vector2 kRectCenter = { 400, 100 };
+	const Vector2 kRectSize = { 200, 100 };
+
+	const Vector2 kLeftTop =
+	{
+		-kRectSize.x / 2,
+		-kRectSize.y / 2
+	};
+	const Vector2 kRightTop =
+	{
+		kRectSize.x / 2,
+		-kRectSize.y / 2
+	};
+	const Vector2 kLeftBottom =
+	{
+		-kRectSize.x / 2,
+		kRectSize.y / 2
+
+	};
+	const Vector2 kRightBottom =
+	{
+		kRectSize.x / 2,
+		kRectSize.y / 2
+	};
+	float theta = 0.0f;
 
 	// ウィンドウの×ボタンが押されるまでループ
 	while (Novice::ProcessMessage() == 0) {
@@ -121,10 +162,27 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 		/// ↓更新処理ここから
 		///
 
-		Matrix2x2 resultAdd = Add(m1, m2);
-		Matrix2x2 resultSubtract = Subtract(m1, m2);
-		Matrix2x2 resultMultiply = Multiply(m1, m2);
-		Vector2 resultVector = Multiply(v, m1);
+		//theta += float(M_PI) / 120.0f;
+		theta += 0.1f;
+
+		// 回転行列を作成
+		Matrix2x2 rotateMatrix = MakeRotateMatrix(theta);
+		// 各頂点に回転行列を掛ける
+		Vector2 leftTop = Multiply(kLeftTop, rotateMatrix);
+		Vector2 rightTop = Multiply(kRightTop, rotateMatrix);
+		Vector2 leftBottom = Multiply(kLeftBottom, rotateMatrix);
+		Vector2 rightBottom = Multiply(kRightBottom, rotateMatrix);
+
+		//各頂点にkRectCenterを加算(xにはkRectCenter.xを、yにはkRectCenter.yを加算)
+		leftTop.x += kRectCenter.x;
+		leftTop.y += kRectCenter.y;
+		rightTop.x += kRectCenter.x;
+		rightTop.y += kRectCenter.y;
+		leftBottom.x += kRectCenter.x;
+		leftBottom.y += kRectCenter.y;
+		rightBottom.x += kRectCenter.x;
+		rightBottom.y += kRectCenter.y;
+
 
 		///
 		/// ↑更新処理ここまで
@@ -134,10 +192,17 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 		/// ↓描画処理ここから
 		///
 
-		MatrixScreenPrintf(0, kRowHeight * 0, resultAdd);
-		MatrixScreenPrintf(0, kRowHeight * 2 + 10, resultSubtract);
-		MatrixScreenPrintf(0, kRowHeight * 4 + 20, resultMultiply);
-		VectorScreenPrintf(0, kRowHeight * 6 + 30, resultVector);
+		// スクリーン座標へ変換
+		Vector2 screenLeftTop = ToScreen(leftTop);
+		Vector2 screenRightTop = ToScreen(rightTop);
+		Vector2 screenLeftBottom = ToScreen(leftBottom);
+		Vector2 screenRightBottom = ToScreen(rightBottom);
+
+		// 描画
+		Novice::DrawQuad(
+			int(screenLeftTop.x), int(screenLeftTop.y), int(screenRightTop.x), int(screenRightTop.y), int(screenLeftBottom.x),
+			int(screenLeftBottom.y), int(screenRightBottom.x), int(screenRightBottom.y), 0, 0, 1, 1, textureHandle,
+			WHITE);
 
 		///
 		/// ↑描画処理ここまで
