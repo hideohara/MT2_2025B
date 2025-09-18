@@ -110,6 +110,22 @@ Vector2 ToScreen(Vector2 world) {
 	  (world.y * kWorldToScreenScale.y) + kWorldToScreenTranslate.y };
 }
 
+
+// 拡大縮小行列の作成関数
+Matrix2x2 MakeScaleMatrix(Vector2 scale)
+{
+	Matrix2x2 result = {};
+
+	//行列を作る
+	result.m[0][0] = scale.x;
+	result.m[0][1] = 0;
+	result.m[1][0] = 0;
+	result.m[1][1] = scale.y;
+
+	return result;
+}
+
+
 // Windowsアプリでのエントリーポイント(main関数)
 int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 
@@ -120,34 +136,8 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 	char keys[256] = {0};
 	char preKeys[256] = {0};
 
-	int textureHandle = Novice::LoadTexture("white1x1.png");
-
-	// もととなる矩形の定数
-	const Vector2 kRectCenter = { 400, 100 };
-	const Vector2 kRectSize = { 200, 100 };
-
-	const Vector2 kLeftTop =
-	{
-		-kRectSize.x / 2,
-		-kRectSize.y / 2
-	};
-	const Vector2 kRightTop =
-	{
-		kRectSize.x / 2,
-		-kRectSize.y / 2
-	};
-	const Vector2 kLeftBottom =
-	{
-		-kRectSize.x / 2,
-		kRectSize.y / 2
-
-	};
-	const Vector2 kRightBottom =
-	{
-		kRectSize.x / 2,
-		kRectSize.y / 2
-	};
-	float theta = 0.0f;
+	
+	Vector2 scale{ 2.0f,4.0f };
 
 	// ウィンドウの×ボタンが押されるまでループ
 	while (Novice::ProcessMessage() == 0) {
@@ -162,27 +152,7 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 		/// ↓更新処理ここから
 		///
 
-		//theta += float(M_PI) / 120.0f;
-		theta += 0.1f;
-
-		// 回転行列を作成
-		Matrix2x2 rotateMatrix = MakeRotateMatrix(theta);
-		// 各頂点に回転行列を掛ける
-		Vector2 leftTop = Multiply(kLeftTop, rotateMatrix);
-		Vector2 rightTop = Multiply(kRightTop, rotateMatrix);
-		Vector2 leftBottom = Multiply(kLeftBottom, rotateMatrix);
-		Vector2 rightBottom = Multiply(kRightBottom, rotateMatrix);
-
-		//各頂点にkRectCenterを加算(xにはkRectCenter.xを、yにはkRectCenter.yを加算)
-		leftTop.x += kRectCenter.x;
-		leftTop.y += kRectCenter.y;
-		rightTop.x += kRectCenter.x;
-		rightTop.y += kRectCenter.y;
-		leftBottom.x += kRectCenter.x;
-		leftBottom.y += kRectCenter.y;
-		rightBottom.x += kRectCenter.x;
-		rightBottom.y += kRectCenter.y;
-
+		Matrix2x2 scaleMatrix = MakeScaleMatrix(scale);
 
 		///
 		/// ↑更新処理ここまで
@@ -192,17 +162,7 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 		/// ↓描画処理ここから
 		///
 
-		// スクリーン座標へ変換
-		Vector2 screenLeftTop = ToScreen(leftTop);
-		Vector2 screenRightTop = ToScreen(rightTop);
-		Vector2 screenLeftBottom = ToScreen(leftBottom);
-		Vector2 screenRightBottom = ToScreen(rightBottom);
-
-		// 描画
-		Novice::DrawQuad(
-			int(screenLeftTop.x), int(screenLeftTop.y), int(screenRightTop.x), int(screenRightTop.y), int(screenLeftBottom.x),
-			int(screenLeftBottom.y), int(screenRightBottom.x), int(screenRightBottom.y), 0, 0, 1, 1, textureHandle,
-			WHITE);
+		MatrixScreenPrintf(0, 0, scaleMatrix);
 
 		///
 		/// ↑描画処理ここまで
