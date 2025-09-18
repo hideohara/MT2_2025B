@@ -1,5 +1,6 @@
 #include <Novice.h>
 #include <math.h>
+#include <assert.h>
 //#define _USE_MATH_DEFINES
 
 const char kWindowTitle[] = "GC1C_99_オオハラ_ヒデフミ";
@@ -9,6 +10,13 @@ struct Matrix2x2
 {
 	float m[2][2];
 };
+
+// 3x3の行列を表す
+struct Matrix3x3
+{
+	float m[3][3];
+};
+
 // 2次元ベクトルを表す
 struct Vector2
 {
@@ -110,20 +118,38 @@ Vector2 ToScreen(Vector2 world) {
 	  (world.y * kWorldToScreenScale.y) + kWorldToScreenTranslate.y };
 }
 
-
-// 拡大縮小行列の作成関数
-Matrix2x2 MakeScaleMatrix(Vector2 scale)
+// 平衡移動行列
+Matrix3x3 MakeTranslateMatrix(Vector2 translate)
 {
-	Matrix2x2 result = {};
+	Matrix3x3 result = {};
 
-	//行列を作る
-	result.m[0][0] = scale.x;
+	result.m[0][0] = 1;
 	result.m[0][1] = 0;
+	result.m[0][2] = 0;
+
 	result.m[1][0] = 0;
-	result.m[1][1] = scale.y;
+	result.m[1][1] = 1;
+	result.m[1][2] = 0;
+
+	result.m[2][0] = translate.x;
+	result.m[2][1] = translate.y;
+	result.m[2][2] = 1;
 
 	return result;
 }
+
+// 平衡移動を行う
+Vector2 Transform(Vector2 vector, Matrix3x3 matrix) {
+	Vector2 result;
+	result.x = vector.x * matrix.m[0][0] + vector.y * matrix.m[1][0] + 1.0f * matrix.m[2][0];
+	result.y = vector.x * matrix.m[0][1] + vector.y * matrix.m[1][1] + 1.0f * matrix.m[2][1];
+	float w = vector.x * matrix.m[0][2] + vector.y * matrix.m[1][2] + 1.0f * matrix.m[2][2];
+	assert(w != 0.0f);
+	result.x /= w;
+	result.y /= w;
+	return result;
+}
+
 
 
 // Windowsアプリでのエントリーポイント(main関数)
@@ -133,11 +159,42 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 	Novice::Initialize(kWindowTitle, 1280, 720);
 
 	// キー入力結果を受け取る箱
-	char keys[256] = {0};
-	char preKeys[256] = {0};
+	char keys[256] = { 0 };
+	char preKeys[256] = { 0 };
 
-	
-	Vector2 scale{ 2.0f,4.0f };
+	int textureHandle = Novice::LoadTexture("white1x1.png");
+
+	// もととなる矩形の定数
+	const Vector2 kRectCenter = { 400, 100 };
+	const Vector2 kRectSize = { 200, 100 };
+
+	const Vector2 kLeftTop =
+	{
+		-kRectSize.x / 2,
+		-kRectSize.y / 2
+	};
+	const Vector2 kRightTop =
+	{
+		kRectSize.x / 2,
+		-kRectSize.y / 2
+	};
+	const Vector2 kLeftBottom =
+	{
+		-kRectSize.x / 2,
+		kRectSize.y / 2
+
+	};
+	const Vector2 kRightBottom =
+	{
+		kRectSize.x / 2,
+		kRectSize.y / 2
+	};
+
+	// 中心の座標
+	Vector2 rectCenter = { 400, 100 };
+
+	// キー入力で移動する速さ
+	const int kSpeed = 4;
 
 	// ウィンドウの×ボタンが押されるまでループ
 	while (Novice::ProcessMessage() == 0) {
@@ -152,7 +209,29 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 		/// ↓更新処理ここから
 		///
 
-		Matrix2x2 scaleMatrix = MakeScaleMatrix(scale);
+		// 上キーを押したら上に動かす
+		if (keys[DIK_UP] != 0) {
+			rectCenter.y += kSpeed;
+		}
+		// 下キーを押したら下に動かす
+		if (keys[DIK_DOWN] != 0) {
+			rectCenter.y -= kSpeed;
+		}
+		// 左キーを押したら左に動かす
+		if (keys[DIK_LEFT] != 0) {
+			rectCenter.x -= kSpeed;
+		}
+		// 右キーを押したら右に動かす
+		if (keys[DIK_RIGHT] != 0) {
+			rectCenter.x += kSpeed;
+		}
+
+		// 各頂点を変更移動
+		Matrix3x3 translateMatrix = MakeTranslateMatrix(rectCenter);
+		Vector2 leftTop = Transform(kLeftTop, translateMatrix);
+		Vector2 rightTop = Transform(kRightTop, translateMatrix);
+		Vector2 leftBottom = Transform(kLeftBottom, translateMatrix);
+		Vector2 rightBottom = Transform(kRightBottom, translateMatrix);
 
 		///
 		/// ↑更新処理ここまで
@@ -162,7 +241,17 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 		/// ↓描画処理ここから
 		///
 
-		MatrixScreenPrintf(0, 0, scaleMatrix);
+		// スクリーン座標へ変換
+		Vector2 screenLeftTop = ToScreen(leftTop);
+		Vector2 screenRightTop = ToScreen(rightTop);
+		Vector2 screenLeftBottom = ToScreen(leftBottom);
+		Vector2 screenRightBottom = ToScreen(rightBottom);
+
+		// 描画
+		Novice::DrawQuad(
+			int(screenLeftTop.x), int(screenLeftTop.y), int(screenRightTop.x), int(screenRightTop.y), int(screenLeftBottom.x),
+			int(screenLeftBottom.y), int(screenRightBottom.x), int(screenRightBottom.y), 0, 0, 1, 1, textureHandle,
+			WHITE);
 
 		///
 		/// ↑描画処理ここまで
