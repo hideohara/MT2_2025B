@@ -1,7 +1,7 @@
 #include <Novice.h>
 #include <math.h>
 #include <assert.h>
-//#define _USE_MATH_DEFINES
+#define _USE_MATH_DEFINES
 
 const char kWindowTitle[] = "GC1C_99_オオハラ_ヒデフミ";
 
@@ -15,6 +15,7 @@ struct Matrix2x2
 struct Matrix3x3
 {
 	float m[3][3];
+
 };
 
 // 2次元ベクトルを表す
@@ -71,14 +72,20 @@ Matrix2x2 Subtract(Matrix2x2 matrix1, Matrix2x2 matrix2)
 }
 
 // 3. 行列の積
-Matrix2x2 Multiply(Matrix2x2 matrix1, Matrix2x2 matrix2)
+Matrix3x3 Multiply(Matrix3x3 matrix1, Matrix3x3 matrix2)
 {
-	Matrix2x2 result = {};
+	Matrix3x3 result = {};
 
-	result.m[0][0] = matrix1.m[0][0] * matrix2.m[0][0] + matrix1.m[0][1] * matrix2.m[1][0];
-	result.m[0][1] = matrix1.m[0][0] * matrix2.m[0][1] + matrix1.m[0][1] * matrix2.m[1][1];
-	result.m[1][0] = matrix1.m[1][0] * matrix2.m[0][0] + matrix1.m[1][1] * matrix2.m[1][0];
-	result.m[1][1] = matrix1.m[1][0] * matrix2.m[0][1] + matrix1.m[1][1] * matrix2.m[1][1];
+	for (int i = 0; i < 3; i++)
+	{
+		for (int j = 0; j < 3; j++)
+		{
+			for (int k = 0; k < 3; k++)
+			{
+				result.m[i][j] += matrix1.m[i][k] * matrix2.m[k][j];
+			}
+		}
+	}
 
 	return result;
 }
@@ -95,15 +102,23 @@ Vector2 Multiply(Vector2 vector, Matrix2x2 matrix)
 }
 
 // 回転行列
-Matrix2x2 MakeRotateMatrix(float theta)
+Matrix3x3 MakeRotateMatrix(float theta)
 {
-	Matrix2x2 result = {};
+	Matrix3x3 result = {};
 
 	//行列を作る
 	result.m[0][0] = cosf(theta);
 	result.m[0][1] = sinf(theta);
+	result.m[0][2] = 0;
+
 	result.m[1][0] = -sinf(theta);
 	result.m[1][1] = cosf(theta);
+	result.m[1][2] = 0;
+
+	result.m[2][0] = 0;
+	result.m[2][1] = 0;
+	result.m[2][2] = 1;
+
 	return result;
 }
 
@@ -150,7 +165,45 @@ Vector2 Transform(Vector2 vector, Matrix3x3 matrix) {
 	return result;
 }
 
+// 拡大縮小行列の作成関数
+Matrix3x3 MakeScaleMatrix(Vector2 scale)
+{
+	Matrix3x3 result = {};
 
+	//行列を作る
+	result.m[0][0] = scale.x;
+	result.m[0][1] = 0;
+	result.m[0][2] = 0;
+
+	result.m[1][0] = 0;
+	result.m[1][1] = scale.y;
+	result.m[1][2] = 0;
+
+	result.m[2][0] = 0;
+	result.m[2][1] = 0;
+	result.m[2][2] = 1;
+
+	return result;
+}
+
+Matrix3x3 MakeAffineMatrix(Vector2 scale, float rotate, Vector2 translate) {
+
+	Matrix3x3 result = {};
+
+	//拡大縮小行列を生成する
+	Matrix3x3 scaleMatrix = MakeScaleMatrix(scale);
+
+	//回転行列を生成する
+	Matrix3x3 rotateMatrix = MakeRotateMatrix(rotate);
+
+	//平行移動行列を生成する
+	Matrix3x3 translateMatrix = MakeTranslateMatrix(translate);
+
+	// result = Multiply(Multiply(scaleMatrix, rotateMatrix), translateMatrix);
+	result = Multiply(Multiply(scaleMatrix, translateMatrix), rotateMatrix);
+
+	return result;
+}
 
 // Windowsアプリでのエントリーポイント(main関数)
 int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
@@ -165,36 +218,45 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 	int textureHandle = Novice::LoadTexture("white1x1.png");
 
 	// もととなる矩形の定数
-	const Vector2 kRectCenter = { 400, 100 };
 	const Vector2 kRectSize = { 200, 100 };
 
-	const Vector2 kLeftTop =
+	const Vector2 leftTop =
 	{
 		-kRectSize.x / 2,
 		-kRectSize.y / 2
 	};
-	const Vector2 kRightTop =
+	const Vector2 rightTop =
 	{
 		kRectSize.x / 2,
 		-kRectSize.y / 2
 	};
-	const Vector2 kLeftBottom =
+	const Vector2 leftBottom =
 	{
 		-kRectSize.x / 2,
 		kRectSize.y / 2
 
 	};
-	const Vector2 kRightBottom =
+	const Vector2 rightBottom =
 	{
 		kRectSize.x / 2,
 		kRectSize.y / 2
 	};
 
 	// 中心の座標
-	Vector2 rectCenter = { 400, 100 };
+	Vector2 translate = { 400, 100 };
+	// 拡縮
+	//Vector2 scale = { 1, 1 };
+	// 角度
+	float theta = 0;
 
 	// キー入力で移動する速さ
 	const int kSpeed = 4;
+
+	// スケール
+	//const float kMaxScale = 2.0f;
+	//const float kMinScale = 0.5f;
+	float scale = 1.0f;
+	//float scaleIncrement = 0.04f;
 
 	// ウィンドウの×ボタンが押されるまでループ
 	while (Novice::ProcessMessage() == 0) {
@@ -211,27 +273,48 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 
 		// 上キーを押したら上に動かす
 		if (keys[DIK_UP] != 0) {
-			rectCenter.y += kSpeed;
+			translate.y += kSpeed;
 		}
 		// 下キーを押したら下に動かす
 		if (keys[DIK_DOWN] != 0) {
-			rectCenter.y -= kSpeed;
+			translate.y -= kSpeed;
 		}
 		// 左キーを押したら左に動かす
 		if (keys[DIK_LEFT] != 0) {
-			rectCenter.x -= kSpeed;
+			translate.x -= kSpeed;
 		}
 		// 右キーを押したら右に動かす
 		if (keys[DIK_RIGHT] != 0) {
-			rectCenter.x += kSpeed;
+			translate.x += kSpeed;
 		}
 
-		// 各頂点を変更移動
+		// 角度
+		theta += 0.1f;
+
+		// スケール
+		//scale += scaleIncrement;
+		//if (scale <= kMinScale || kMaxScale <= scale) {
+		//	scaleIncrement *= -1.0f;
+		//}
+
+		/*
+		// それぞれの行列を作成する
+		Matrix3x3 scaleMatrix = MakeScaleMatrix(Vector2{ scale,scale });
+		Matrix3x3 rotateMatrix = MakeRotateMatrix(theta);
 		Matrix3x3 translateMatrix = MakeTranslateMatrix(rectCenter);
-		Vector2 leftTop = Transform(kLeftTop, translateMatrix);
-		Vector2 rightTop = Transform(kRightTop, translateMatrix);
-		Vector2 leftBottom = Transform(kLeftBottom, translateMatrix);
-		Vector2 rightBottom = Transform(kRightBottom, translateMatrix);
+		// かける順番を間違えないように！
+		Matrix3x3 worldMatrix = Multiply(scaleMatrix, rotateMatrix);
+		worldMatrix = Multiply(worldMatrix, translateMatrix);
+		*/
+
+		// アフィン変換の行列
+		Matrix3x3 worldMatrix = MakeAffineMatrix(Vector2{ scale,scale }, theta, translate);
+
+		// 結合した行列で変換を行う
+		Vector2 worldLeftTop = Transform(leftTop, worldMatrix);
+		Vector2 worldRightTop = Transform(rightTop, worldMatrix);
+		Vector2 worldLeftBottom = Transform(leftBottom, worldMatrix);
+		Vector2 worldRightBottom = Transform(rightBottom, worldMatrix);
 
 		///
 		/// ↑更新処理ここまで
@@ -242,10 +325,10 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 		///
 
 		// スクリーン座標へ変換
-		Vector2 screenLeftTop = ToScreen(leftTop);
-		Vector2 screenRightTop = ToScreen(rightTop);
-		Vector2 screenLeftBottom = ToScreen(leftBottom);
-		Vector2 screenRightBottom = ToScreen(rightBottom);
+		Vector2 screenLeftTop = ToScreen(worldLeftTop);
+		Vector2 screenRightTop = ToScreen(worldRightTop);
+		Vector2 screenLeftBottom = ToScreen(worldLeftBottom);
+		Vector2 screenRightBottom = ToScreen(worldRightBottom);
 
 		// 描画
 		Novice::DrawQuad(
