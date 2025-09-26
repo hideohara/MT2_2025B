@@ -200,7 +200,7 @@ Matrix3x3 MakeAffineMatrix(Vector2 scale, float rotate, Vector2 translate) {
 	Matrix3x3 translateMatrix = MakeTranslateMatrix(translate);
 
 	result = Multiply(Multiply(scaleMatrix, rotateMatrix), translateMatrix);
-	//result = Multiply(Multiply(scaleMatrix, translateMatrix), rotateMatrix);
+	// result = Multiply(Multiply(scaleMatrix, translateMatrix), rotateMatrix);
 
 	return result;
 }
